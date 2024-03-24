@@ -37,49 +37,53 @@ local function createTween(letterImage, startPosition, endPosition, delay, durat
     return tween
 end
 
-local function createSineWaveBounceTween(imageInstance, duration, repeatCount, reverses)
+local function createSineWaveBounceTween(imageInstance, index, duration, repeatCount, reverses)
+    local delay = index * 0.15 -- Delay based on the index of the letter
     local tweenInfo = TweenInfo.new(
         duration,
         Enum.EasingStyle.Sine,
         Enum.EasingDirection.Out,
         repeatCount,
-        reverses
+        reverses,
+        delay -- Add the delay here
     )
+    local startSize = imageInstance.Size
+    local startPosition = imageInstance.Position
+
     local goals = {
-        Position = imageInstance.Position + UDim2.new(0, 0, 0, -10), -- translateY(-10px)
-        Size = imageInstance.Size * 0.95, -- scale(0.95)
-        Transparency = 0 -- opacity: 1 (in Roblox, 0 means fully visible)
+        Position = startPosition + UDim2.new(0, 0, 0, -10), -- translateY(-10px)
+        Size = UDim2.new(startSize.X.Scale, startSize.X.Offset * 0.95, startSize.Y.Scale, startSize.Y.Offset * 0.95), -- scale down to 95%
+        ImageTransparency = 0 -- fully visible
     }
     local tween = TweenService:Create(imageInstance, tweenInfo, goals)
 
-    -- Tween modifiers for different keyframes
     tween.Completed:Connect(function(playbackState)
         if playbackState == Enum.PlaybackState.Completed then
             -- 25% keyframe equivalent
-            goals.Position = imageInstance.Position + UDim2.new(0, 0, 0, 5)
-            goals.Size = imageInstance.Size * 1.05
-            goals.Transparency = 0.5
+            goals.Position = startPosition + UDim2.new(0, 0, 0, 5) -- translateY(5px)
+            goals.Size = UDim2.new(startSize.X.Scale, startSize.X.Offset * 1.05, startSize.Y.Scale, startSize.Y.Offset * 1.05) -- scale up to 105%
+            goals.ImageTransparency = 0.5 -- 50% visible
             local tween25 = TweenService:Create(imageInstance, tweenInfo, goals)
             tween25:Play()
 
             -- 50% keyframe equivalent
-            goals.Position = imageInstance.Position + UDim2.new(0, 0, 0, -5)
-            goals.Size = imageInstance.Size * 1
-            goals.Transparency = 0.75
+            goals.Position = startPosition + UDim2.new(0, 0, 0, -5) -- translateY(-5px)
+            goals.Size = startSize -- scale back to 100%
+            goals.ImageTransparency = 0.75 -- 25% visible
             local tween50 = TweenService:Create(imageInstance, tweenInfo, goals)
             tween50:Play()
 
             -- 75% keyframe equivalent
-            goals.Position = imageInstance.Position + UDim2.new(0, 0, 0, 2)
-            goals.Size = imageInstance.Size * 0.98
-            goals.Transparency = 0.875
+            goals.Position = startPosition + UDim2.new(0, 0, 0, 2) -- translateY(2px)
+            goals.Size = UDim2.new(startSize.X.Scale, startSize.X.Offset * 0.98, startSize.Y.Scale, startSize.Y.Offset * 0.98) -- scale down to 98%
+            goals.ImageTransparency = 0.875 -- 12.5% visible
             local tween75 = TweenService:Create(imageInstance, tweenInfo, goals)
             tween75:Play()
 
             -- 100% keyframe equivalent
-            goals.Position = imageInstance.Position
-            goals.Size = imageInstance.Size * 1
-            goals.Transparency = 1
+            goals.Position = startPosition -- translateY(0)
+            goals.Size = startSize -- scale back to 100%
+            goals.ImageTransparency = 1 -- fully transparent
             local tween100 = TweenService:Create(imageInstance, tweenInfo, goals)
             tween100:Play()
         end
@@ -105,7 +109,7 @@ logoContainer.Size = UDim2.new(0, totalWidth, 0, letterSize) -- Set size to cont
 local centerX = logoContainer.AbsoluteSize.X / 2
 local firstLetterX = centerX - (totalWidth / 2)
 
--- Create, play, and store tweens for each letter
+-- Create and play the sine wave bounce tweens for each letter
 local tweens = {}
 for i = 1, #word do
     local char = word:sub(i, i)
@@ -114,17 +118,18 @@ for i = 1, #word do
         local imageInstance = Instance.new("ImageLabel")
         imageInstance.Image = letterImage.Value
         imageInstance.Size = UDim2.new(0, letterSize, 0, letterSize)
-        -- Calculate the position for each letter relative to the center of the logoContainer
         local letterPositionX = firstLetterX + (i - 1) * (letterSize + spacing)
-        local initialPosition = UDim2.new(0, letterPositionX, 0.5, 0)
+        local initialPosition = UDim2.new(0, letterPositionX, centerY, 0)
         imageInstance.Position = initialPosition
         imageInstance.AnchorPoint = Vector2.new(0, 0.5)
         imageInstance.BackgroundTransparency = 1
         imageInstance.Parent = logoContainer
 
-        -- Create the tween for the letter
-        local bouncePosition = UDim2.new(0, letterPositionX, 0.5, -20) -- Bounce up by 20 pixels
-        local tween = createTween(imageInstance, initialPosition, bouncePosition, (i - 1) * 0.1, 0.75, -1, true)
+        -- Use the custom sine wave bounce tween function
+        local duration = 0.75 -- Duration for one bounce cycle
+        local repeatCount = -1 -- Repeat indefinitely
+        local reverses = true -- Reverse the tween after each cycle
+        local tween = createSineWaveBounceTween(imageInstance, i, duration, repeatCount, reverses)
         table.insert(tweens, tween)
         tween:Play()
     end
@@ -139,6 +144,7 @@ for i, tween in ipairs(tweens) do
     local letterImage = tween.Instance
     local letterPositionX = firstLetterX + (i - 1) * (letterSize + spacing)
     local initialPosition = UDim2.new(0, letterPositionX, 0.5, 0)
+    letterImage.ImageTransparency = 0
     local resetTween = createTween(letterImage, letterImage.Position, initialPosition, 0, 0.5, 0, false)
     resetTween:Play()
 end
