@@ -19,11 +19,6 @@ local screenWidth = screenGui.AbsoluteSize.X
 local startPositionX = (screenWidth - totalWidth) / 2
 local centerY = 0.5 -- Center vertically in the screenGui
 
--- Assuming logoContainer is a Frame or similar UI element
-logoContainer.AnchorPoint = Vector2.new(0.5, 0.5) -- Set anchor to the center
-logoContainer.Position = UDim2.new(0.5, 0, 0.5, 0) -- Center on screen
-logoContainer.Size = UDim2.new(0, totalWidth, 0, letterSize) -- Set size to contain all letters
-
 -- Collect all assets to preload
 local assetsToPreload = {}
 for i = 1, #word do
@@ -42,6 +37,57 @@ local function createTween(letterImage, startPosition, endPosition, delay, durat
     return tween
 end
 
+local function createSineWaveBounceTween(imageInstance, duration, repeatCount, reverses)
+    local tweenInfo = TweenInfo.new(
+        duration,
+        Enum.EasingStyle.Sine,
+        Enum.EasingDirection.Out,
+        repeatCount,
+        reverses
+    )
+    local goals = {
+        Position = imageInstance.Position + UDim2.new(0, 0, 0, -10), -- translateY(-10px)
+        Size = imageInstance.Size * 0.95, -- scale(0.95)
+        Transparency = 0 -- opacity: 1 (in Roblox, 0 means fully visible)
+    }
+    local tween = TweenService:Create(imageInstance, tweenInfo, goals)
+
+    -- Tween modifiers for different keyframes
+    tween.Completed:Connect(function(playbackState)
+        if playbackState == Enum.PlaybackState.Completed then
+            -- 25% keyframe equivalent
+            goals.Position = imageInstance.Position + UDim2.new(0, 0, 0, 5)
+            goals.Size = imageInstance.Size * 1.05
+            goals.Transparency = 0.5
+            local tween25 = TweenService:Create(imageInstance, tweenInfo, goals)
+            tween25:Play()
+
+            -- 50% keyframe equivalent
+            goals.Position = imageInstance.Position + UDim2.new(0, 0, 0, -5)
+            goals.Size = imageInstance.Size * 1
+            goals.Transparency = 0.75
+            local tween50 = TweenService:Create(imageInstance, tweenInfo, goals)
+            tween50:Play()
+
+            -- 75% keyframe equivalent
+            goals.Position = imageInstance.Position + UDim2.new(0, 0, 0, 2)
+            goals.Size = imageInstance.Size * 0.98
+            goals.Transparency = 0.875
+            local tween75 = TweenService:Create(imageInstance, tweenInfo, goals)
+            tween75:Play()
+
+            -- 100% keyframe equivalent
+            goals.Position = imageInstance.Position
+            goals.Size = imageInstance.Size * 1
+            goals.Transparency = 1
+            local tween100 = TweenService:Create(imageInstance, tweenInfo, goals)
+            tween100:Play()
+        end
+    end)
+
+    return tween
+end
+
 -- Preload assets and wait for a minimum of 5 seconds
 local startTime = tick()
 ContentProvider:PreloadAsync(assetsToPreload)
@@ -49,6 +95,15 @@ local elapsedTime = tick() - startTime
 if elapsedTime < 5 then
     wait(5 - elapsedTime) -- Ensure a minimum of 5 seconds wait time
 end
+
+-- Assuming logoContainer is a Frame or similar UI element
+logoContainer.AnchorPoint = Vector2.new(0.5, 0.5) -- Set anchor to the center
+logoContainer.Position = UDim2.new(0.5, 0, 0.5, 0) -- Center on screen
+logoContainer.Size = UDim2.new(0, totalWidth, 0, letterSize) -- Set size to contain all letters
+
+-- Calculate the starting X position for the first letter to center the word in the logoContainer
+local centerX = logoContainer.AbsoluteSize.X / 2
+local firstLetterX = centerX - (totalWidth / 2)
 
 -- Create, play, and store tweens for each letter
 local tweens = {}
@@ -59,14 +114,16 @@ for i = 1, #word do
         local imageInstance = Instance.new("ImageLabel")
         imageInstance.Image = letterImage.Value
         imageInstance.Size = UDim2.new(0, letterSize, 0, letterSize)
-        -- Calculate the initial position for each letter
-        local initialPosition = UDim2.new(0, startPositionX + (i - 1) * (letterSize + spacing), centerY, 0)
+        -- Calculate the position for each letter relative to the center of the logoContainer
+        local letterPositionX = firstLetterX + (i - 1) * (letterSize + spacing)
+        local initialPosition = UDim2.new(0, letterPositionX, 0.5, 0)
         imageInstance.Position = initialPosition
         imageInstance.AnchorPoint = Vector2.new(0, 0.5)
         imageInstance.BackgroundTransparency = 1
         imageInstance.Parent = logoContainer
 
-        local bouncePosition = initialPosition + UDim2.new(0, 0, 0, -20)
+        -- Create the tween for the letter
+        local bouncePosition = UDim2.new(0, letterPositionX, 0.5, -20) -- Bounce up by 20 pixels
         local tween = createTween(imageInstance, initialPosition, bouncePosition, (i - 1) * 0.1, 0.75, -1, true)
         table.insert(tweens, tween)
         tween:Play()
@@ -80,7 +137,8 @@ wait(5) -- Simulate additional wait time or conditions
 for i, tween in ipairs(tweens) do
     tween:Cancel()
     local letterImage = tween.Instance
-    local initialPosition = UDim2.new(0, startPositionX + (i - 1) * (letterSize + spacing), centerY, 0)
+    local letterPositionX = firstLetterX + (i - 1) * (letterSize + spacing)
+    local initialPosition = UDim2.new(0, letterPositionX, 0.5, 0)
     local resetTween = createTween(letterImage, letterImage.Position, initialPosition, 0, 0.5, 0, false)
     resetTween:Play()
 end
